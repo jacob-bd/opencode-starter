@@ -5,9 +5,10 @@ import type { BackendConfig, ModelInfo, UserPreferences, ConflictInfo } from './
 import { BACKENDS } from './constants.js';
 import { groupModels } from './models.js';
 
-function modelLabel(model: ModelInfo): string {
+function modelLabel(model: ModelInfo, showBackendBadge = false): string {
   if (model.isFree) {
-    return pc.green(`${model.name} (free)`);
+    const tag = showBackendBadge ? '(free · Zen)' : '(free)';
+    return pc.green(`${model.name} ${tag}`);
   }
   return model.name;
 }
@@ -65,8 +66,8 @@ export async function runWizard(
   p.intro(pc.bold('  OpenCode Starter'));
 
   // Backend selection — only shown for 'both' tier (user has two distinct backends to choose from).
-  // All other tiers have an implicit backend: free/zen → Zen, go → Go.
-  let backend: BackendConfig;
+  // free/zen → always Zen. go → mixed list (Zen free + Go paid), backend resolved per model.
+  let selectorBackendId: 'zen' | 'go' | null = null;
   if (tier === 'both') {
     const backendId = await p.select<'zen' | 'go'>({
       message: 'Which backend?',
@@ -81,24 +82,24 @@ export async function runWizard(
       p.cancel('Cancelled.');
       return null;
     }
-    backend = BACKENDS[backendId];
-  } else if (tier === 'go') {
-    backend = BACKENDS.go;
-  } else {
-    backend = BACKENDS.zen;
+    selectorBackendId = backendId;
   }
 
   // Determine which models to show based on tier
+  // For 'go': Zen free models first (labeled "free · Zen"), then all Go paid models.
+  // Backend for each model is its sourceBackend — resolved after the user picks.
+  const showBackendBadge = tier === 'go';
   let models: ModelInfo[];
   if (tier === 'free') {
     models = modelsByBackend.zen.filter(m => m.isFree);
   } else if (tier === 'zen') {
     models = modelsByBackend.zen;
   } else if (tier === 'go') {
-    models = modelsByBackend.go;
+    const zenFree = modelsByBackend.zen.filter(m => m.isFree);
+    models = [...zenFree, ...modelsByBackend.go];
   } else {
     // both: all models for the selected backend
-    models = backend.id === 'go' ? modelsByBackend.go : modelsByBackend.zen;
+    models = selectorBackendId === 'go' ? modelsByBackend.go : modelsByBackend.zen;
   }
 
   // Build model selector options
@@ -107,7 +108,7 @@ export async function runWizard(
   const options: Array<{ value: string; label: string; hint: string }> = [];
 
   for (const m of free) {
-    options.push({ value: m.id, label: modelLabel(m), hint: modelHint(m) });
+    options.push({ value: m.id, label: modelLabel(m, showBackendBadge), hint: modelHint(m) });
   }
 
   const brandOrder = ['Claude', 'GPT', 'Gemini', 'DeepSeek', 'Qwen', 'MiniMax', 'Kimi', 'GLM', 'MiMo', 'Grok', 'Nemotron', 'Other'];
@@ -143,6 +144,9 @@ export async function runWizard(
   }
 
   const selectedModel = models.find(m => m.id === String(modelId))!;
+  // Backend is always determined by which model was picked (critical for 'go' tier
+  // where Zen free models and Go paid models coexist in the same list).
+  const backend = BACKENDS[selectedModel.sourceBackend];
 
   // Show conflict warning if any
   if (conflicts.length > 0) {

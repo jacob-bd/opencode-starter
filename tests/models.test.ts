@@ -37,7 +37,7 @@ describe('deriveBrand', () => {
 
 describe('mergeModels', () => {
   it('returns minimal ModelInfo when cache is null', () => {
-    const result = mergeModels(['claude-opus-4-8'], null);
+    const result = mergeModels(['claude-opus-4-8'], null, 'zen');
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
       id: 'claude-opus-4-8',
@@ -45,7 +45,13 @@ describe('mergeModels', () => {
       isFree: false,
       brand: 'Other',
       isAnthropicNative: false,
+      sourceBackend: 'zen',
     });
+  });
+
+  it('uses backendId for sourceBackend when no cache entry', () => {
+    const result = mergeModels(['unknown-model'], null, 'go');
+    expect(result[0]!.sourceBackend).toBe('go');
   });
 
   it('enriches models with cache data when available', () => {
@@ -56,16 +62,18 @@ describe('mergeModels', () => {
         isFree: false,
         brand: 'Claude',
         isAnthropicNative: true,
+        sourceBackend: 'zen' as const,
         cost: { input: 3, output: 15 },
       }],
     ]);
-    const result = mergeModels(['claude-sonnet-4-6'], cache);
+    const result = mergeModels(['claude-sonnet-4-6'], cache, 'zen');
     expect(result[0]).toMatchObject({
       id: 'claude-sonnet-4-6',
       name: 'Claude Sonnet 4.6',
       isFree: false,
       isAnthropicNative: true,
       brand: 'Claude',
+      sourceBackend: 'zen',
     });
   });
 
@@ -77,33 +85,36 @@ describe('mergeModels', () => {
         isFree: true,
         brand: 'DeepSeek',
         isAnthropicNative: false,
+        sourceBackend: 'zen' as const,
         cost: { input: 0, output: 0 },
       }],
     ]);
-    const result = mergeModels(['deepseek-v4-flash-free'], cache);
+    const result = mergeModels(['deepseek-v4-flash-free'], cache, 'zen');
     expect(result[0]).toMatchObject({
       isFree: true,
       isAnthropicNative: false,
+      sourceBackend: 'zen',
     });
   });
 
   it('skips cache entries for models not in API list', () => {
     const cache = new Map([
-      ['model-in-cache', { id: 'model-in-cache', name: 'X', isFree: false, brand: 'Other', isAnthropicNative: false }],
+      ['model-in-cache', { id: 'model-in-cache', name: 'X', isFree: false, brand: 'Other', isAnthropicNative: false, sourceBackend: 'zen' as const }],
     ]);
-    const result = mergeModels(['model-from-api'], cache);
+    const result = mergeModels(['model-from-api'], cache, 'zen');
     expect(result).toHaveLength(1);
     expect(result[0]!.id).toBe('model-from-api');
   });
 });
 
 describe('groupModels', () => {
-  const makeModel = (id: string, isFree: boolean, brand: string, isAnthropicNative = false): ModelInfo => ({
+  const makeModel = (id: string, isFree: boolean, brand: string, isAnthropicNative = false, sourceBackend: 'zen' | 'go' = 'zen'): ModelInfo => ({
     id,
     name: id,
     isFree,
     brand,
     isAnthropicNative,
+    sourceBackend,
   });
 
   it('separates free models from paid models', () => {

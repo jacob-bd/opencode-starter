@@ -64,6 +64,7 @@ export function readModelsFromCache(
         isFree,
         brand: deriveBrand(entry.family ?? ''),
         isAnthropicNative,
+        sourceBackend: backendId,
         cost: entry.cost,
       });
     }
@@ -96,6 +97,7 @@ export async function fetchModelsFromApi(backend: BackendConfig): Promise<string
 export function mergeModels(
   apiIds: string[],
   cache: Map<string, ModelInfo> | null,
+  backendId: 'zen' | 'go',
 ): ModelInfo[] {
   return apiIds.map(id => {
     const cached = cache?.get(id);
@@ -105,6 +107,7 @@ export function mergeModels(
       isFree: false,
       brand: 'Other',
       isAnthropicNative: false,
+      sourceBackend: backendId,
     };
   });
 }
@@ -137,7 +140,7 @@ export async function getModels(
 
   try {
     const apiIds = await fetchModelsFromApi(backend);
-    return { models: mergeModels(apiIds, cache), fromCache: false };
+    return { models: mergeModels(apiIds, cache, backend.id), fromCache: false };
   } catch {
     if (cache && cache.size > 0) {
       return { models: [...cache.values()], fromCache: true };

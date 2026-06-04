@@ -19,6 +19,7 @@ export interface ModelInfo {
   isFree: boolean;
   brand: string;
   isAnthropicNative: boolean;
+  sourceBackend: 'zen' | 'go';
   cost?: ModelCost;
 }
 

@@ -6,6 +6,10 @@
 
 **Architecture:** Interactive wizard (backend → model → confirm) using `@clack/prompts`, models fetched from OpenCode API and enriched from the local OpenCode cache at `~/.cache/opencode/models.json`. Claude Code is spawned as a child process with a clean environment (16 conflicting vars unset, 3 OpenCode vars injected). `settings.json` is never touched.
 
+**Updated requirements (added mid-implementation):**
+- `--dry-run` flag: run full wizard interactively, then print a preview (command + env changes) instead of launching Claude Code
+- All models shown (Zen translates all to Anthropic format server-side). `ModelInfo` gains `isAnthropicNative: boolean` (from `provider.npm === '@ai-sdk/anthropic'` in cache). Non-native models get `(translated)` hint in wizard. When launching a non-native model, `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1` is automatically added to child env to prevent beta header rejection.
+
 **Tech Stack:** TypeScript + ESM, compiled to single `dist/cli.js` with `tsup`. Runtime deps: `@clack/prompts`, `picocolors`, `conf`. Test runner: `vitest`.
 
 ---

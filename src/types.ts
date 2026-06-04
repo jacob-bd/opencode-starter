@@ -38,6 +38,7 @@ export interface ParsedArgs {
   showVersion: boolean;
   dryRun: boolean;
   setup: boolean;
+  trace: boolean;
   claudeArgs: string[];
 }
 

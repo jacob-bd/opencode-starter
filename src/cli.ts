@@ -1,8 +1,9 @@
 // src/cli.ts
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import { appendFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { appendFileSync, readFileSync, existsSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { findClaudeBinary, launchClaude } from './launch.js';
 import { resolveApiKey, detectConflicts, buildChildEnv } from './env.js';
@@ -14,20 +15,22 @@ import type { ParsedArgs, ModelInfo } from './types.js';
 
 function parseArgs(args: string[]): ParsedArgs {
   if (args.includes('--help') || args.includes('-h')) {
-    return { showHelp: true, showVersion: false, dryRun: false, setup: false, claudeArgs: [] };
+    return { showHelp: true, showVersion: false, dryRun: false, setup: false, trace: false, claudeArgs: [] };
   }
   if (args.includes('--version') || args.includes('-v')) {
-    return { showVersion: true, showHelp: false, dryRun: false, setup: false, claudeArgs: [] };
+    return { showVersion: true, showHelp: false, dryRun: false, setup: false, trace: false, claudeArgs: [] };
   }
   const dryRun = args.includes('--dry-run');
   const setup = args.includes('--setup');
-  const filteredArgs = args.filter(a => a !== '--dry-run' && a !== '--setup');
+  const trace = args.includes('--trace');
+  const filteredArgs = args.filter(a => a !== '--dry-run' && a !== '--setup' && a !== '--trace');
   const sep = filteredArgs.indexOf('--');
   return {
     showHelp: false,
     showVersion: false,
     dryRun,
     setup,
+    trace,
     claudeArgs: sep >= 0 ? filteredArgs.slice(sep + 1) : [],
   };
 }
@@ -45,6 +48,7 @@ ${pc.bold('Usage:')}
 ${pc.bold('Flags:')}
   --dry-run    Run the wizard but show a preview instead of launching Claude Code
   --setup      Re-configure your subscription tier
+  --trace      Write Claude Code debug logs to /tmp/opencode-starter-debug.log and show errors on exit
 
 ${pc.bold('Setup:')}
   Get your API key at https://opencode.ai/settings/keys
@@ -228,7 +232,7 @@ async function resolveOrCollectApiKey(): Promise<string | null> {
 }
 
 async function main(): Promise<void> {
-  const { showHelp, showVersion, dryRun, setup, claudeArgs } = parseArgs(process.argv.slice(2));
+  const { showHelp, showVersion, dryRun, setup, trace, claudeArgs } = parseArgs(process.argv.slice(2));
 
   if (showHelp) { printHelp(); return; }
   if (showVersion) { console.log(VERSION); return; }
@@ -313,7 +317,31 @@ async function main(): Promise<void> {
 
   const childEnv = buildChildEnv(selection.backend, selection.model.id, apiKey);
   childEnv['CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS'] = '1';
-  const exitCode = await launchClaude(childEnv, selection.model.id, claudeArgs);
+
+  // --trace: write Claude Code debug logs so we can see the actual API error
+  const debugLogPath = join(tmpdir(), 'opencode-starter-debug.log');
+  const traceArgs = trace ? ['--debug-file', debugLogPath] : [];
+  if (trace) {
+    p.log.info(`Debug log: ${debugLogPath}`);
+  }
+
+  const exitCode = await launchClaude(childEnv, selection.model.id, [...traceArgs, ...claudeArgs]);
+
+  if (trace && existsSync(debugLogPath)) {
+    const log = readFileSync(debugLogPath, 'utf8');
+    // Extract error lines — the most useful signal
+    const errorLines = log.split('\n').filter(l =>
+      l.includes('error') || l.includes('Error') || l.includes('"type":"error"') || l.includes('status')
+    );
+    console.log('\n' + pc.bold(pc.cyan('── Debug trace ──')));
+    if (errorLines.length > 0) {
+      errorLines.slice(0, 30).forEach(l => console.log(pc.dim(l)));
+    } else {
+      console.log(pc.dim('(no errors found in debug log)'));
+    }
+    console.log(pc.dim(`Full log: ${debugLogPath}`));
+  }
+
   process.exit(exitCode);
 }
 

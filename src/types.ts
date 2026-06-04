@@ -18,6 +18,7 @@ export interface ModelInfo {
   name: string;
   isFree: boolean;
   brand: string;
+  isAnthropicNative: boolean;
   cost?: ModelCost;
 }
 
@@ -33,6 +34,7 @@ export interface UserPreferences {
 export interface ParsedArgs {
   showHelp: boolean;
   showVersion: boolean;
+  dryRun: boolean;
   claudeArgs: string[];
 }
 

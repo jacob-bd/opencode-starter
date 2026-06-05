@@ -4,23 +4,32 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-const FALLBACK_PATHS = [
-  join(homedir(), '.local', 'bin', 'claude'),
-  join(homedir(), '.npm', 'bin', 'claude'),
-  '/usr/local/bin/claude',
-  '/opt/homebrew/bin/claude',
-];
+const isWindows = process.platform === 'win32';
+
+const FALLBACK_PATHS = isWindows
+  ? [
+      join(process.env['APPDATA'] ?? homedir(), 'npm', 'claude.cmd'),
+      join(process.env['APPDATA'] ?? homedir(), 'npm', 'claude'),
+      join(homedir(), 'AppData', 'Roaming', 'npm', 'claude.cmd'),
+    ]
+  : [
+      join(homedir(), '.local', 'bin', 'claude'),
+      join(homedir(), '.npm', 'bin', 'claude'),
+      '/usr/local/bin/claude',
+      '/opt/homebrew/bin/claude',
+    ];
 
 export function findClaudeBinary(): string | null {
   try {
-    const result = execSync('which claude', {
+    const result = execSync(isWindows ? 'where.exe claude' : 'which claude', {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
     });
-    const path = result.trim();
+    // where.exe returns one result per line — take the first
+    const path = result.trim().split('\n')[0].trim();
     if (path) return path;
   } catch {
-    // `which` failed — try fallback paths
+    // command failed — try fallback paths
   }
   for (const path of FALLBACK_PATHS) {
     if (existsSync(path)) return path;
@@ -40,6 +49,7 @@ export function launchClaude(
     const child = spawn(claudePath, args, {
       stdio: 'inherit',
       env,
+      shell: isWindows,
     });
 
     const forward = (signal: NodeJS.Signals): void => {

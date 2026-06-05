@@ -13,7 +13,12 @@ import { execSync, spawn } from "child_process";
 import { existsSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
-var FALLBACK_PATHS = [
+var isWindows = process.platform === "win32";
+var FALLBACK_PATHS = isWindows ? [
+  join(process.env["APPDATA"] ?? homedir(), "npm", "claude.cmd"),
+  join(process.env["APPDATA"] ?? homedir(), "npm", "claude"),
+  join(homedir(), "AppData", "Roaming", "npm", "claude.cmd")
+] : [
   join(homedir(), ".local", "bin", "claude"),
   join(homedir(), ".npm", "bin", "claude"),
   "/usr/local/bin/claude",
@@ -21,11 +26,11 @@ var FALLBACK_PATHS = [
 ];
 function findClaudeBinary() {
   try {
-    const result = execSync("which claude", {
+    const result = execSync(isWindows ? "where.exe claude" : "which claude", {
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"]
     });
-    const path = result.trim();
+    const path = result.trim().split("\n")[0].trim();
     if (path) return path;
   } catch {
   }
@@ -40,7 +45,8 @@ function launchClaude(env, model, extraArgs) {
     const args = ["--model", model, ...extraArgs];
     const child = spawn(claudePath, args, {
       stdio: "inherit",
-      env
+      env,
+      shell: isWindows
     });
     const forward = (signal) => {
       child.kill(signal);
@@ -506,7 +512,7 @@ async function resolveOrCollectApiKey(simulate = false) {
     if (existing) return existing;
   }
   const isMac = process.platform === "darwin";
-  const isWindows = process.platform === "win32";
+  const isWindows2 = process.platform === "win32";
   const isLinux = process.platform === "linux";
   if (simulate) {
     p2.note(
@@ -517,7 +523,7 @@ async function resolveOrCollectApiKey(simulate = false) {
   if (!simulate) {
     const storedKey = await readFromCredentialStore();
     if (storedKey) {
-      const storeName = isMac ? "macOS Keychain" : isWindows ? "Windows Credential Manager" : "Secret Service";
+      const storeName = isMac ? "macOS Keychain" : isWindows2 ? "Windows Credential Manager" : "Secret Service";
       p2.log.success(`Found key in ${storeName}`);
       process.env["OPENCODE_API_KEY"] = storedKey;
       return storedKey;
@@ -563,7 +569,7 @@ async function resolveOrCollectApiKey(simulate = false) {
         }
       ];
     }
-    if (isWindows) {
+    if (isWindows2) {
       return [
         {
           value: "credential-manager",
@@ -609,7 +615,7 @@ async function resolveOrCollectApiKey(simulate = false) {
   const saveChoice = await p2.select({
     message: "Where should we save the key?",
     options: saveOptions,
-    initialValue: isMac ? "keychain" : isWindows ? "credential-manager" : secretServiceAvailable ? "secret-service" : "profile"
+    initialValue: isMac ? "keychain" : isWindows2 ? "credential-manager" : secretServiceAvailable ? "secret-service" : "profile"
   });
   if (p2.isCancel(saveChoice)) {
     p2.cancel("Cancelled.");

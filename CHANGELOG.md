@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.5] - 2026-06-05
+
+- Fix: Pass `X-API-Key` headers to upstream servers for paid Anthropic-format models.
+- Fix: Blacklist deprecated MiMo models `mimo-v2-pro` and `mimo-v2-omni` to prevent runtime failures.
+
 ## [0.2.4] - 2026-06-05
 
 - Fix: Server network mode now displays the actual local LAN IP address instead of the `<this-computer-ip>` placeholder.

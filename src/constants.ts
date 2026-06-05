@@ -49,6 +49,8 @@ export const MODELS_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 // Filtered to avoid misleading users into selecting a non-functional free model.
 export const STALE_FREE_MODELS = new Set([
   'qwen3.6-plus-free',       // 401 — free promotion ended
+  'mimo-v2-pro',             // 400 — deprecated, migrate to mimo-v2.5-pro
+  'mimo-v2-omni',            // 400 — deprecated, migrate to mimo-v2.5
 ]);
 
 // Classify a model's API format based on cache provider data or ID heuristics.
@@ -70,4 +72,4 @@ export function classifyModelFormat(
   return 'openai';
 }
 
-export const VERSION = '0.2.4';
+export const VERSION = '0.2.5';

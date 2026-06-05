@@ -101,8 +101,12 @@ var CONFLICTING_ENV_VARS = [
 var OPENCODE_CACHE_PATH = join2(homedir2(), ".cache", "opencode", "models.json");
 var MODELS_CACHE_TTL_MS = 60 * 60 * 1e3;
 var STALE_FREE_MODELS = /* @__PURE__ */ new Set([
-  "qwen3.6-plus-free"
+  "qwen3.6-plus-free",
   // 401 — free promotion ended
+  "mimo-v2-pro",
+  // 400 — deprecated, migrate to mimo-v2.5-pro
+  "mimo-v2-omni"
+  // 400 — deprecated, migrate to mimo-v2.5
 ]);
 function classifyModelFormat(modelId, providerNpm) {
   if (providerNpm === "@ai-sdk/anthropic") return "anthropic";
@@ -114,7 +118,7 @@ function classifyModelFormat(modelId, providerNpm) {
   if (lower.startsWith("gemini-")) return "unsupported";
   return "openai";
 }
-var VERSION = "0.2.4";
+var VERSION = "0.2.5";
 
 // src/env.ts
 function detectConflicts() {
@@ -1120,7 +1124,8 @@ async function postJson(url, body, apiKey) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`
+      Authorization: `Bearer ${apiKey}`,
+      "X-API-Key": apiKey
     },
     body: JSON.stringify(body)
   });

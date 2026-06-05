@@ -111,25 +111,29 @@ function detectShellProfile(): { display: string; path: string } {
   return { display: '~/.profile', path: `${homedir()}/.profile` };
 }
 
-function readFromKeychain(): string | null {
+async function readFromCredentialStore(): Promise<string | null> {
   try {
-    const result = execSync(
-      'security find-generic-password -s opencode-starter -a opencode-starter -w',
-      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
-    );
-    return result.trim() || null;
+    const { Entry } = await import('@napi-rs/keyring');
+    return new Entry('opencode-starter', 'opencode-starter').getPassword() ?? null;
   } catch {
     return null;
   }
 }
 
-function saveToKeychain(key: string): boolean {
+async function saveToCredentialStore(key: string): Promise<boolean> {
   try {
-    // -U: update if already exists
-    execSync(
-      `security add-generic-password -s opencode-starter -a opencode-starter -w ${JSON.stringify(key)} -U`,
-      { stdio: ['pipe', 'pipe', 'pipe'] },
-    );
+    const { Entry } = await import('@napi-rs/keyring');
+    new Entry('opencode-starter', 'opencode-starter').setPassword(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function isSecretServiceAvailable(): Promise<boolean> {
+  try {
+    const { Entry } = await import('@napi-rs/keyring');
+    new Entry('opencode-starter-probe', 'probe').getPassword();
     return true;
   } catch {
     return false;

@@ -1,4 +1,5 @@
 import pc from 'picocolors';
+import { networkInterfaces } from 'node:os';
 import * as p from '@clack/prompts';
 import { resolveApiKey, readFromCredentialStore } from '../env.js';
 import {
@@ -21,6 +22,18 @@ import { createModelCatalog } from './models.js';
 import { startServer } from './router.js';
 
 type SubscriptionTier = 'free' | 'zen' | 'go' | 'both';
+
+function getLocalIp(): string {
+  const ifaces = networkInterfaces();
+  for (const iface of Object.values(ifaces)) {
+    for (const addr of iface ?? []) {
+      if (addr.family === 'IPv4' && !addr.internal) {
+        return addr.address;
+      }
+    }
+  }
+  return '<this-computer-ip>';
+}
 
 function modelsForTier(tier: SubscriptionTier, backendId: 'zen' | 'go', models: ModelInfo[]): ModelInfo[] {
   if (tier === 'free') return backendId === 'zen' ? models.filter(model => model.isFree) : [];
@@ -146,8 +159,8 @@ export async function runServerCommand(): Promise<number> {
   console.log(`  Anthropic:  http://127.0.0.1:${server.port}/anthropic`);
   console.log(`  OpenAI:     http://127.0.0.1:${server.port}/openai`);
   if (mode === 'network') {
-    console.log(`  Network:    http://<this-computer-ip>:${server.port}`);
-    console.log('  API key:    <server password>');
+    console.log(`  Network:    http://${getLocalIp()}:${server.port}`);
+    console.log(`  API key:    ${serverPassword}`);
   } else {
     console.log('  API key:    any non-empty value');
   }

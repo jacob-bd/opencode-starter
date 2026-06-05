@@ -24,7 +24,7 @@ export async function askServerPassword(): Promise<string | null> {
     'Network mode warning',
   );
 
-  const password = await p.password({
+  const password = await p.text({
     message: 'Choose a server password for this run:',
     validate: value => value.trim() ? undefined : 'Password cannot be empty',
   });

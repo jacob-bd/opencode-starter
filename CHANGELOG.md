@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.4] - 2026-06-05
+
+- Fix: Server network mode now displays the actual local LAN IP address instead of the `<this-computer-ip>` placeholder.
+- Fix: Server password prompt now shows input in plaintext so users can verify what they typed before confirming.
+- Fix: Server network mode startup output now shows the actual server password so users can share/copy it.
+
 ## [0.2.3] - 2026-06-05
 
 - Fix: The `opencode-starter server` command now automatically resolves/loads the API key from the OS credential store (Keyring/Keychain/Credential Manager) if it's not exported in the shell environment.

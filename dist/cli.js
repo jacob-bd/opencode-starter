@@ -114,7 +114,7 @@ function classifyModelFormat(modelId, providerNpm) {
   if (lower.startsWith("gemini-")) return "unsupported";
   return "openai";
 }
-var VERSION = "0.2.3";
+var VERSION = "0.2.4";
 
 // src/env.ts
 function detectConflicts() {
@@ -277,11 +277,11 @@ import { Readable } from "stream";
 import { appendFileSync } from "fs";
 function hashSystemPrompt(system) {
   if (!system) return null;
-  const text = typeof system === "string" ? system : system.map((s) => s.text || "").join("\n");
-  if (!text.trim()) return null;
+  const text2 = typeof system === "string" ? system : system.map((s) => s.text || "").join("\n");
+  if (!text2.trim()) return null;
   let hash = 5381;
-  for (let i = 0; i < text.length; i++) {
-    hash = (hash << 5) + hash + text.charCodeAt(i);
+  for (let i = 0; i < text2.length; i++) {
+    hash = (hash << 5) + hash + text2.charCodeAt(i);
     hash = hash & hash;
   }
   return "cache-" + Math.abs(hash).toString(36);
@@ -339,12 +339,12 @@ function translateRequest(body) {
     const result = [];
     if (msg.role === "assistant") {
       const assistantMsg = { role: "assistant", content: null };
-      let text = "";
+      let text2 = "";
       let reasoningContent = "";
       const toolCalls = [];
       for (const part of msg.content) {
         if (part.type === "text") {
-          text += (typeof part.text === "string" ? part.text : JSON.stringify(part.text)) + "\n";
+          text2 += (typeof part.text === "string" ? part.text : JSON.stringify(part.text)) + "\n";
         } else if (part.type === "thinking") {
           reasoningContent += (typeof part.thinking === "string" ? part.thinking : JSON.stringify(part.thinking)) + "\n";
         } else if (part.type === "tool_use") {
@@ -355,7 +355,7 @@ function translateRequest(body) {
           });
         }
       }
-      const trimmed = text.trim();
+      const trimmed = text2.trim();
       const trimmedReasoning = reasoningContent.trim();
       if (trimmed) assistantMsg.content = trimmed;
       if (trimmedReasoning) assistantMsg.reasoning_content = trimmedReasoning;
@@ -769,6 +769,7 @@ function startProxy(upstreamBaseUrl, modelId, debug = false) {
 
 // src/server/index.ts
 import pc from "picocolors";
+import { networkInterfaces } from "os";
 import * as p2 from "@clack/prompts";
 
 // src/config.ts
@@ -877,11 +878,11 @@ function setSubscriptionTier(tier) {
 function getSavedServerPassword() {
   return readConfig().server?.savedPassword?.trim() || null;
 }
-function setSavedServerPassword(password3) {
+function setSavedServerPassword(password2) {
   const config = readConfig();
   config.server = {
     ...config.server ?? {},
-    savedPassword: password3
+    savedPassword: password2
   };
   writeConfig(config);
 }
@@ -908,15 +909,15 @@ async function askServerPassword() {
     "Anyone on your network who knows this password can use this server through your OpenCode account.",
     "Network mode warning"
   );
-  const password3 = await p.password({
+  const password2 = await p.text({
     message: "Choose a server password for this run:",
     validate: (value) => value.trim() ? void 0 : "Password cannot be empty"
   });
-  if (p.isCancel(password3)) {
+  if (p.isCancel(password2)) {
     p.cancel("Cancelled.");
     return null;
   }
-  return String(password3).trim();
+  return String(password2).trim();
 }
 async function askUseSavedServerPassword() {
   const choice = await p.select({
@@ -1123,8 +1124,8 @@ async function postJson(url, body, apiKey) {
     },
     body: JSON.stringify(body)
   });
-  const text = await response.text();
-  const parsed = text ? JSON.parse(text) : null;
+  const text2 = await response.text();
+  const parsed = text2 ? JSON.parse(text2) : null;
   return { status: response.status, body: parsed };
 }
 async function readJson(req) {
@@ -1154,6 +1155,17 @@ function sendJson2(res, status, body) {
 }
 
 // src/server/index.ts
+function getLocalIp() {
+  const ifaces = networkInterfaces();
+  for (const iface of Object.values(ifaces)) {
+    for (const addr of iface ?? []) {
+      if (addr.family === "IPv4" && !addr.internal) {
+        return addr.address;
+      }
+    }
+  }
+  return "<this-computer-ip>";
+}
 function modelsForTier(tier, backendId, models) {
   if (tier === "free") return backendId === "zen" ? models.filter((model) => model.isFree) : [];
   if (tier === "go") return backendId === "zen" ? models.filter((model) => model.isFree) : models;
@@ -1257,8 +1269,8 @@ async function runServerCommand() {
   console.log(`  Anthropic:  http://127.0.0.1:${server.port}/anthropic`);
   console.log(`  OpenAI:     http://127.0.0.1:${server.port}/openai`);
   if (mode === "network") {
-    console.log(`  Network:    http://<this-computer-ip>:${server.port}`);
-    console.log("  API key:    <server password>");
+    console.log(`  Network:    http://${getLocalIp()}:${server.port}`);
+    console.log(`  API key:    ${serverPassword}`);
   } else {
     console.log("  API key:    any non-empty value");
   }
@@ -1539,9 +1551,9 @@ ${pc3.bold("Behavior:")}
   Server password is saved only if the user chooses to save it.
   Server host and port are not saved.`;
 }
-function printHelp(text) {
+function printHelp(text2) {
   console.log(`
-${text}
+${text2}
 `);
 }
 function printDryRun(backendName, modelId, baseUrl, modelFormat, claudeArgs, conflicts, disableExperimentalBetas) {

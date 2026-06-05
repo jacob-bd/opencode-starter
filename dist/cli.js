@@ -6,7 +6,6 @@ import * as p2 from "@clack/prompts";
 import { appendFileSync, readFileSync as readFileSync2, existsSync as existsSync2 } from "fs";
 import { homedir as homedir3, tmpdir } from "os";
 import { join as join3 } from "path";
-import { execSync as execSync2 } from "child_process";
 
 // src/launch.ts
 import { execSync, spawn } from "child_process";
@@ -467,28 +466,6 @@ function detectShellProfile() {
     return { display: `~/${profile}`, path: `${homedir3()}/${profile}` };
   }
   return { display: "~/.profile", path: `${homedir3()}/.profile` };
-}
-function readFromKeychain() {
-  try {
-    const result = execSync2(
-      "security find-generic-password -s opencode-starter -a opencode-starter -w",
-      { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }
-    );
-    return result.trim() || null;
-  } catch {
-    return null;
-  }
-}
-function saveToKeychain(key) {
-  try {
-    execSync2(
-      `security add-generic-password -s opencode-starter -a opencode-starter -w ${JSON.stringify(key)} -U`,
-      { stdio: ["pipe", "pipe", "pipe"] }
-    );
-    return true;
-  } catch {
-    return false;
-  }
 }
 async function resolveOrCollectApiKey(simulate = false) {
   if (!simulate) {

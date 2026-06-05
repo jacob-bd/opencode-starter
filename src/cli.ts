@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
 import { findClaudeBinary, launchClaude } from './launch.js';
-import { resolveApiKey, detectConflicts, buildChildEnv } from './env.js';
+import { resolveApiKey, detectConflicts, buildChildEnv, readFromCredentialStore, saveToCredentialStore, isSecretServiceAvailable } from './env.js';
 import { getModels } from './models.js';
 import { startProxy } from './proxy.js';
 import type { ProxyHandle } from './proxy.js';
@@ -226,34 +226,6 @@ function detectShellProfile(): { display: string; path: string } {
   return { display: '~/.profile', path: `${homedir()}/.profile` };
 }
 
-async function readFromCredentialStore(): Promise<string | null> {
-  try {
-    const { Entry } = await import('@napi-rs/keyring');
-    return new Entry('opencode-starter', 'opencode-starter').getPassword() ?? null;
-  } catch {
-    return null;
-  }
-}
-
-async function saveToCredentialStore(key: string): Promise<boolean> {
-  try {
-    const { Entry } = await import('@napi-rs/keyring');
-    new Entry('opencode-starter', 'opencode-starter').setPassword(key);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function isSecretServiceAvailable(): Promise<boolean> {
-  try {
-    const { Entry } = await import('@napi-rs/keyring');
-    new Entry('opencode-starter-probe', 'probe').getPassword();
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 async function resolveOrCollectApiKey(simulate = false): Promise<string | null> {
   // Step 1: already in environment (skipped in simulate/dry-run mode)

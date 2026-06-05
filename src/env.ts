@@ -32,3 +32,33 @@ export function buildChildEnv(
   env['ANTHROPIC_MODEL'] = model;
   return env;
 }
+
+export async function readFromCredentialStore(): Promise<string | null> {
+  try {
+    const { Entry } = await import('@napi-rs/keyring');
+    return new Entry('opencode-starter', 'opencode-starter').getPassword() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveToCredentialStore(key: string): Promise<boolean> {
+  try {
+    const { Entry } = await import('@napi-rs/keyring');
+    new Entry('opencode-starter', 'opencode-starter').setPassword(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function isSecretServiceAvailable(): Promise<boolean> {
+  try {
+    const { Entry } = await import('@napi-rs/keyring');
+    new Entry('opencode-starter-probe', 'probe').getPassword();
+    return true;
+  } catch {
+    return false;
+  }
+}
+

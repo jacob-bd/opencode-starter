@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.3] - 2026-06-05
+
+- Fix: The `opencode-starter server` command now automatically resolves/loads the API key from the OS credential store (Keyring/Keychain/Credential Manager) if it's not exported in the shell environment.
+- Docs: Added instructions to the `README.md` on how to upgrade the package.
+
 ## [0.2.2] - 2026-06-05
 
 - Simplified dry-run key-save logging in `resolveOrCollectApiKey` — replaced a 7-branch `if-else` chain with a `Record<SaveChoice, string>` lookup table. No behavioral change.

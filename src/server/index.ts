@@ -1,6 +1,6 @@
 import pc from 'picocolors';
 import * as p from '@clack/prompts';
-import { resolveApiKey } from '../env.js';
+import { resolveApiKey, readFromCredentialStore } from '../env.js';
 import {
   getCachedModels,
   getSavedServerPassword,
@@ -90,7 +90,17 @@ async function loadServerModels(tier: SubscriptionTier): Promise<ModelInfo[]> {
 }
 
 export async function runServerCommand(): Promise<number> {
-  const apiKey = resolveApiKey();
+  let apiKey = resolveApiKey();
+  if (!apiKey) {
+    apiKey = await readFromCredentialStore();
+    if (apiKey) {
+      const isMac = process.platform === 'darwin';
+      const isWindows = process.platform === 'win32';
+      const storeName = isMac ? 'macOS Keychain' : isWindows ? 'Windows Credential Manager' : 'Secret Service';
+      p.log.success(`Found key in ${storeName}`);
+    }
+  }
+
   if (!apiKey) {
     p.log.error('Missing OPENCODE_API_KEY. Run `opencode-starter claude` once to configure your key, or export OPENCODE_API_KEY.');
     return 1;

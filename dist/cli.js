@@ -114,7 +114,7 @@ function classifyModelFormat(modelId, providerNpm) {
   if (lower.startsWith("gemini-")) return "unsupported";
   return "openai";
 }
-var VERSION = "0.2.2";
+var VERSION = "0.2.3";
 
 // src/env.ts
 function detectConflicts() {
@@ -133,6 +133,32 @@ function buildChildEnv(backend, model, apiKey, proxyPort) {
   env["ANTHROPIC_API_KEY"] = apiKey;
   env["ANTHROPIC_MODEL"] = model;
   return env;
+}
+async function readFromCredentialStore() {
+  try {
+    const { Entry } = await import("@napi-rs/keyring");
+    return new Entry("opencode-starter", "opencode-starter").getPassword() ?? null;
+  } catch {
+    return null;
+  }
+}
+async function saveToCredentialStore(key) {
+  try {
+    const { Entry } = await import("@napi-rs/keyring");
+    new Entry("opencode-starter", "opencode-starter").setPassword(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function isSecretServiceAvailable() {
+  try {
+    const { Entry } = await import("@napi-rs/keyring");
+    new Entry("opencode-starter-probe", "probe").getPassword();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // src/models.ts
@@ -1183,7 +1209,16 @@ async function loadServerModels(tier) {
   return models;
 }
 async function runServerCommand() {
-  const apiKey = resolveApiKey();
+  let apiKey = resolveApiKey();
+  if (!apiKey) {
+    apiKey = await readFromCredentialStore();
+    if (apiKey) {
+      const isMac = process.platform === "darwin";
+      const isWindows2 = process.platform === "win32";
+      const storeName = isMac ? "macOS Keychain" : isWindows2 ? "Windows Credential Manager" : "Secret Service";
+      p2.log.success(`Found key in ${storeName}`);
+    }
+  }
   if (!apiKey) {
     p2.log.error("Missing OPENCODE_API_KEY. Run `opencode-starter claude` once to configure your key, or export OPENCODE_API_KEY.");
     return 1;
@@ -1557,32 +1592,6 @@ function detectShellProfile() {
   }
   if (shell.includes("bash")) return { display: "~/.bashrc", path: `${homedir4()}/.bashrc` };
   return { display: "~/.profile", path: `${homedir4()}/.profile` };
-}
-async function readFromCredentialStore() {
-  try {
-    const { Entry } = await import("@napi-rs/keyring");
-    return new Entry("opencode-starter", "opencode-starter").getPassword() ?? null;
-  } catch {
-    return null;
-  }
-}
-async function saveToCredentialStore(key) {
-  try {
-    const { Entry } = await import("@napi-rs/keyring");
-    new Entry("opencode-starter", "opencode-starter").setPassword(key);
-    return true;
-  } catch {
-    return false;
-  }
-}
-async function isSecretServiceAvailable() {
-  try {
-    const { Entry } = await import("@napi-rs/keyring");
-    new Entry("opencode-starter-probe", "probe").getPassword();
-    return true;
-  } catch {
-    return false;
-  }
 }
 async function resolveOrCollectApiKey(simulate = false) {
   if (!simulate) {

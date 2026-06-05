@@ -3,6 +3,12 @@
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Readable } from 'node:stream';
+import { appendFileSync } from 'node:fs';
+
+const PROXY_LOG = '/tmp/opencode-proxy-debug.log';
+function plog(msg: string) {
+  try { appendFileSync(PROXY_LOG, `${new Date().toISOString()} ${msg}\n`); } catch { /* ignore */ }
+}
 
 // ── Cache / hash utilities ──────────────────────────────────────────
 
@@ -464,6 +470,15 @@ export function startProxy(upstreamBaseUrl: string, modelId: string): Promise<Pr
   });
 
   const server = createServer(async (req, res) => {
+    plog(`${req.method} ${req.url}`);
+
+    // HEAD / — health check ping from Claude Code
+    if (req.method === 'HEAD') {
+      res.writeHead(200);
+      res.end();
+      return;
+    }
+
     // GET /v1/models — Claude Code validates the model on startup
     if (req.method === 'GET' && req.url?.startsWith('/v1/models')) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -471,9 +486,10 @@ export function startProxy(upstreamBaseUrl: string, modelId: string): Promise<Pr
       return;
     }
 
-    // POST /v1/messages — the main translation path
-    if (req.method === 'POST' && req.url === '/v1/messages') {
+    // POST /v1/messages — the main translation path (Claude Code appends ?beta=true or similar)
+    if (req.method === 'POST' && req.url?.startsWith('/v1/messages')) {
       const apiKey = extractApiKey(req);
+      plog(`POST /v1/messages - key=${apiKey ? `len:${apiKey.length}` : 'MISSING'}, headers=${Object.keys(req.headers).join(',')}`);
       if (!apiKey) {
         anthropicError(res, 401, 'Missing API key');
         return;
@@ -502,12 +518,16 @@ export function startProxy(upstreamBaseUrl: string, modelId: string): Promise<Pr
           body: JSON.stringify(openaiBody),
         });
       } catch (err) {
+        plog(`upstream error: ${err instanceof Error ? err.message : String(err)}`);
         anthropicError(res, 502, `Upstream unreachable: ${err instanceof Error ? err.message : String(err)}`);
         return;
       }
 
+      plog(`upstream ${upstreamRes.status} from ${upstreamUrl}`);
+
       if (!upstreamRes.ok) {
         const errBody = await upstreamRes.text();
+        plog(`upstream error body: ${errBody.slice(0, 500)}`);
         res.writeHead(upstreamRes.status, { 'Content-Type': upstreamRes.headers.get('content-type') || 'application/json' });
         res.end(errBody);
         return;
@@ -545,6 +565,7 @@ export function startProxy(upstreamBaseUrl: string, modelId: string): Promise<Pr
         reject(new Error('Failed to bind proxy'));
         return;
       }
+      plog(`started on port ${addr.port}, forwarding to ${upstreamUrl}`);
       resolve({
         port: addr.port,
         close: () => server.close(),

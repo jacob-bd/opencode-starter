@@ -3,7 +3,7 @@
 // src/cli.ts
 import pc2 from "picocolors";
 import * as p2 from "@clack/prompts";
-import { appendFileSync, readFileSync as readFileSync2, existsSync as existsSync2 } from "fs";
+import { appendFileSync as appendFileSync2, readFileSync as readFileSync2, existsSync as existsSync2 } from "fs";
 import { homedir as homedir3, tmpdir } from "os";
 import { join as join3 } from "path";
 import { execSync as execSync2 } from "child_process";
@@ -244,6 +244,15 @@ async function getModels(backend, fallbackModels) {
 // src/proxy.ts
 import { createServer } from "http";
 import { Readable } from "stream";
+import { appendFileSync } from "fs";
+var PROXY_LOG = "/tmp/opencode-proxy-debug.log";
+function plog(msg) {
+  try {
+    appendFileSync(PROXY_LOG, `${(/* @__PURE__ */ new Date()).toISOString()} ${msg}
+`);
+  } catch {
+  }
+}
 function hashSystemPrompt(system) {
   if (!system) return null;
   const text = typeof system === "string" ? system : system.map((s) => s.text || "").join("\n");
@@ -641,13 +650,20 @@ function startProxy(upstreamBaseUrl, modelId) {
     last_id: modelId
   });
   const server = createServer(async (req, res) => {
+    plog(`${req.method} ${req.url}`);
+    if (req.method === "HEAD") {
+      res.writeHead(200);
+      res.end();
+      return;
+    }
     if (req.method === "GET" && req.url?.startsWith("/v1/models")) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(modelsResponse);
       return;
     }
-    if (req.method === "POST" && req.url === "/v1/messages") {
+    if (req.method === "POST" && req.url?.startsWith("/v1/messages")) {
       const apiKey = extractApiKey(req);
+      plog(`POST /v1/messages - key=${apiKey ? `len:${apiKey.length}` : "MISSING"}, headers=${Object.keys(req.headers).join(",")}`);
       if (!apiKey) {
         anthropicError(res, 401, "Missing API key");
         return;
@@ -673,11 +689,14 @@ function startProxy(upstreamBaseUrl, modelId) {
           body: JSON.stringify(openaiBody)
         });
       } catch (err) {
+        plog(`upstream error: ${err instanceof Error ? err.message : String(err)}`);
         anthropicError(res, 502, `Upstream unreachable: ${err instanceof Error ? err.message : String(err)}`);
         return;
       }
+      plog(`upstream ${upstreamRes.status} from ${upstreamUrl}`);
       if (!upstreamRes.ok) {
         const errBody = await upstreamRes.text();
+        plog(`upstream error body: ${errBody.slice(0, 500)}`);
         res.writeHead(upstreamRes.status, { "Content-Type": upstreamRes.headers.get("content-type") || "application/json" });
         res.end(errBody);
         return;
@@ -708,6 +727,7 @@ function startProxy(upstreamBaseUrl, modelId) {
         reject(new Error("Failed to bind proxy"));
         return;
       }
+      plog(`started on port ${addr.port}, forwarding to ${upstreamUrl}`);
       resolve({
         port: addr.port,
         close: () => server.close()
@@ -1165,7 +1185,7 @@ async function resolveOrCollectApiKey(simulate = false) {
         const autoLoadLine = `export OPENCODE_API_KEY="$(security find-generic-password -s opencode-starter -a opencode-starter -w 2>/dev/null)"`;
         const existing = existsSync2(path) ? readFileSync2(path, "utf8") : "";
         if (!existing.includes(autoLoadLine)) {
-          appendFileSync(path, `
+          appendFileSync2(path, `
 # opencode-starter: load API key from macOS Keychain
 ${autoLoadLine}
 `);
@@ -1199,8 +1219,8 @@ ${autoLoadLine}
     }
   } else if (saveChoice === "profile") {
     try {
-      if (!existsSync2(path)) appendFileSync(path, "");
-      appendFileSync(path, `
+      if (!existsSync2(path)) appendFileSync2(path, "");
+      appendFileSync2(path, `
 export OPENCODE_API_KEY="${trimmedKey}"
 `);
       p2.log.success(`Key saved to ${display} \u2014 active now and in all future terminals.`);

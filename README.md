@@ -11,6 +11,8 @@ opencode-starter is an interactive CLI wizard that configures and launches AI co
 - **Free models highlighted** — green `(free)` label makes it easy to spot zero-cost options
 - **Protocol transparency** — models that use server-side translation are labeled `(translated)` so you know what you're picking
 - **Clean environment isolation** — removes conflicting env vars (Vertex AI, Bedrock, AWS, Foundry) before launch; **never modifies `~/.claude/settings.json`**
+- **Secure key storage** — stores your API key in the OS credential store (macOS Keychain, Windows Credential Manager, Linux Secret Service) or your shell profile — your choice
+- **Cross-platform** — macOS, Windows, and Linux (Ubuntu, Fedora, and other distros with GNOME Keyring or KWallet)
 - **Dry run mode** — preview exactly what would be run without launching anything
 - **Preference memory** — remembers your last backend and model, pre-selects them next time
 
@@ -32,13 +34,13 @@ opencode-starter is an interactive CLI wizard that configures and launches AI co
 ### From GitHub (recommended while in private beta)
 
 ```bash
-npm install -g github:jbendavi/opencode-starter
+npm install -g github:jacob-bd/opencode-starter
 ```
 
 Or clone and link locally:
 
 ```bash
-git clone https://github.com/jbendavi/opencode-starter.git
+git clone https://github.com/jacob-bd/opencode-starter.git
 cd opencode-starter
 npm install
 npm run build
@@ -53,17 +55,18 @@ npm install -g opencode-starter
 
 ## Setup
 
-Add your OpenCode API key to your shell profile:
+Get your API key at [opencode.ai/settings/keys](https://opencode.ai/settings/keys).
 
-```bash
-# zsh
-echo 'export OPENCODE_API_KEY="your-key-here"' >> ~/.zshrc && source ~/.zshrc
+On first run, `opencode-starter` will prompt you for the key and ask where to save it. Options vary by OS:
 
-# bash
-echo 'export OPENCODE_API_KEY="your-key-here"' >> ~/.bashrc && source ~/.bashrc
-```
+| Platform | Secure storage | Plaintext fallback |
+|----------|---------------|-------------------|
+| macOS | Keychain (optional: + `~/.zshrc` auto-load) | Shell profile |
+| Windows | Credential Manager | `setx` user env var |
+| Linux (desktop) | Secret Service (GNOME Keyring / KWallet) | Shell profile |
+| Linux (headless) | — | Shell profile |
 
-Get your key at [opencode.ai/settings/keys](https://opencode.ai/settings/keys).
+The key is always active immediately in the current session regardless of which option you choose. No need to restart your terminal.
 
 ## Usage
 
@@ -123,6 +126,19 @@ OpenCode Zen and Go expose all models via the Anthropic Messages API (`/v1/messa
 - **(translated)** — protocol translated by OpenCode (DeepSeek, GLM, Kimi, GPT, Gemini, etc.)
 
 For translated models, `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1` is automatically set to prevent beta header rejection from the translation layer.
+
+### API key storage
+
+opencode-starter uses [`@napi-rs/keyring`](https://www.npmjs.com/package/@napi-rs/keyring) to interface with the OS credential store. On subsequent runs it checks the credential store silently — if a key is found, the wizard skips the key prompt entirely.
+
+| Platform | Credential store | Notes |
+|----------|-----------------|-------|
+| macOS | macOS Keychain | Optional `~/.zshrc` auto-load line makes the key available system-wide |
+| Windows | Windows Credential Manager | `setx` available as a plaintext alternative |
+| Linux (desktop) | Secret Service API (GNOME Keyring, KWallet) | Requires a running keyring daemon |
+| Linux (headless) | Not available | Falls back to shell profile or session-only |
+
+If the native module fails to load on an unsupported platform, the credential store options are silently skipped and only shell profile / session-only storage is offered.
 
 ### Preference persistence
 

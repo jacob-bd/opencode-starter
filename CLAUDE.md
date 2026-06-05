@@ -31,7 +31,7 @@ npm run build && opencode-starter --version
 **Data flow:**
 ```
 cli.ts
-  → resolveOrCollectApiKey()   [reads env, macOS Keychain, or prompts user]
+  → resolveOrCollectApiKey()   [reads env, OS credential store (all platforms), or prompts user]
   → askSubscriptionTier()      [prompts.ts — one-time question, saved to conf store]
   → getModels()                [models.ts — API fetch + cache enrichment]
   → runWizard()                [prompts.ts — backend/model selector]
@@ -56,10 +56,20 @@ cli.ts
 
 **Preferences** (via `conf` package at `~/.config/opencode-starter/config.json`): `lastBackend`, `lastModel`, `subscriptionTier`, and a 1-hour model list cache. All writes are skipped when `dryRun === true`.
 
-**API key storage options** (macOS):
-1. Keychain + `~/.zshrc` auto-load — `security add-generic-password -s opencode-starter -a opencode-starter -w <key>`; `~/.zshrc` line reads from Keychain at shell start. If Keychain entry is deleted, env var becomes `""` which `resolveApiKey()` treats as null.
-2. Shell profile (plaintext export)
-3. Session only
+**API key storage** uses `@napi-rs/keyring` (installed as `optionalDependencies`) for cross-platform credential store access. The module is loaded via dynamic `import()` so a missing native binary degrades gracefully. `tsup.config.ts` marks it as `external` so esbuild doesn't try to bundle the native `.node` addon.
+
+On startup, `resolveOrCollectApiKey()` silently calls `readFromCredentialStore()` — if a key is found the prompt is skipped entirely.
+
+Save options per platform:
+- **macOS** (4 options): Keychain only | Keychain + `~/.zshrc` auto-load | shell profile (plaintext) | session only
+  - The `~/.zshrc` auto-load line uses the `security` CLI directly (so the shell can source it): `export OPENCODE_API_KEY="$(security find-generic-password -s opencode-starter -a opencode-starter -w 2>/dev/null)"`
+- **Windows** (3 options): Windows Credential Manager | `setx` user env var (plaintext) | session only
+  - `setx` is called with `stdio: ['pipe','pipe','pipe']` to suppress its "SUCCESS" stdout
+- **Linux desktop** (3 options): Secret Service (GNOME Keyring / KWallet) | shell profile (plaintext) | session only
+  - Secret Service availability is probed via a test `getPassword()` call — returns false if the daemon isn't running
+- **Linux headless** (2 options): shell profile | session only — shown with a `p.log.info` note explaining why secure storage is unavailable
+
+In all cases `process.env['OPENCODE_API_KEY']` is set immediately so the key is active for the current session regardless of save choice.
 
 **Tests** cover pure functions only: `env.ts` (all 3 functions) and `models.ts` (`deriveBrand`, `mergeModels`, `groupModels`). Interactive modules (`prompts.ts`, `launch.ts`) and `config.ts` are verified manually.
 

@@ -84,7 +84,7 @@ describe('buildChildEnv', () => {
 
   it('sets ANTHROPIC_BASE_URL to backend URL', () => {
     const env = buildChildEnv(BACKENDS.zen, 'claude-sonnet-4-6', 'my-key');
-    expect(env['ANTHROPIC_BASE_URL']).toBe('https://opencode.ai/zen/v1');
+    expect(env['ANTHROPIC_BASE_URL']).toBe('https://opencode.ai/zen');
   });
 
   it('sets ANTHROPIC_API_KEY to the provided key', () => {

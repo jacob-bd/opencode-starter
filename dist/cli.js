@@ -110,7 +110,7 @@ function classifyModelFormat(modelId, providerNpm) {
   if (lower.startsWith("gemini-")) return "unsupported";
   return "openai";
 }
-var VERSION = "0.1.0";
+var VERSION = "0.2.0";
 
 // src/env.ts
 function detectConflicts() {

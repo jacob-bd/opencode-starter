@@ -1,4 +1,4 @@
-# opencode-starter
+# opencode-starter (Prototype)
 
 > A launcher toolkit for AI coding tools powered by [OpenCode](https://opencode.ai) backends.
 
